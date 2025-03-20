@@ -42,14 +42,13 @@ fn test_find_duplicates_with_same_directory() -> io::Result<()> {
     // Verify that the command was successful
     assert!(output.status.success(), "Command failed: {}", stderr);
 
-    // Verify output contains expected information
-    assert!(stdout.contains("Found 1 sets of duplicate files"));
-    assert!(stdout.contains("test_file.txt"));
+    // Verify that duplicate files are listed
     assert!(stdout.contains("duplicate_file.txt"));
     assert!(stdout.contains("nested_duplicate.txt"));
-    assert!(stdout.contains("Wasted space: "));
 
-    // Clean up (tempdir will be cleaned automatically when temp_dir goes out of scope)
+    // Verify wasted space is reported
+    assert!(stderr.contains("Total wasted space:"));
+
     Ok(())
 }
 
@@ -93,13 +92,14 @@ fn test_find_duplicates_across_directories() -> io::Result<()> {
     // Verify success
     assert!(output.status.success());
 
-    // Verify found one duplicate set
-    assert!(stdout.contains("Found 1 sets of duplicate files"));
-    assert!(stdout.contains("original.txt"));
+    // Verify duplicate is found
     assert!(stdout.contains("duplicate.txt"));
 
     // Verify the unique file is not included
     assert!(!stdout.contains("unique.txt"));
+
+    // Verify wasted space is reported
+    assert!(stderr.contains("Total wasted space:"));
 
     Ok(())
 }
@@ -128,12 +128,15 @@ fn test_no_duplicates() -> io::Result<()> {
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
     // Verify success
     assert!(output.status.success());
 
-    // Verify no duplicates found
-    assert!(stdout.contains("No duplicate files found"));
+    // Verify output is empty (no duplicates found)
+    assert!(stdout.is_empty());
+    // Should still show total (which would be 0)
+    assert!(stderr.contains("Total wasted space:"));
 
     Ok(())
 }
