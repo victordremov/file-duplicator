@@ -6,7 +6,6 @@ use tempfile::tempdir;
 #[test]
 fn test_find_duplicates_with_same_directory() -> io::Result<()> {
     let temp_dir1 = tempdir()?;
-    let temp_dir2 = tempdir()?;
 
     // Create test file in first directory
     let file_path1 = temp_dir1.path().join("test_file.txt");
@@ -14,12 +13,12 @@ fn test_find_duplicates_with_same_directory() -> io::Result<()> {
     writeln!(file1, "This is a test file for deduplication testing")?;
     file1.flush()?;
 
-    // Create a duplicate file in second directory
-    let dup_file_path = temp_dir2.path().join("duplicate_file.txt");
+    // Create a duplicate file
+    let dup_file_path = temp_dir1.path().join("duplicate_file.txt");
     fs::copy(&file_path1, &dup_file_path)?;
 
     // Make a subdirectory with another duplicate
-    let subdir_path = temp_dir2.path().join("subdir");
+    let subdir_path = temp_dir1.path().join("subdir");
     fs::create_dir(&subdir_path)?;
     let nested_dup_path = subdir_path.join("nested_duplicate.txt");
     fs::copy(&file_path1, &nested_dup_path)?;
@@ -27,13 +26,13 @@ fn test_find_duplicates_with_same_directory() -> io::Result<()> {
     // Run the deduplicator
     let output = Command::new(env!("CARGO_BIN_EXE_file-deduplicator"))
         .arg(temp_dir1.path())
-        .arg(temp_dir2.path())
+        .arg(temp_dir1.path())
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    println!("STDOUT: {}", stdout);
+    println!("STDOUT: {}", &stdout);
     println!("STDERR: {}", stderr);
 
     assert!(output.status.success(), "Command failed: {}", stderr);
