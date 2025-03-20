@@ -1,3 +1,4 @@
+use serde_json::Value;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::process::Command;
@@ -36,18 +37,30 @@ fn test_find_duplicates_with_same_directory() -> io::Result<()> {
     println!("STDERR: {}", stderr);
 
     assert!(output.status.success(), "Command failed: {}", stderr);
+
+    // Parse JSON output using serde_json::Value
+    let groups: Vec<Value> = serde_json::from_str(&stdout).unwrap();
+
+    // Should have one group with 3 files
+    assert_eq!(groups.len(), 1);
+
+    let files = groups[0]["files"].as_array().unwrap();
+    assert_eq!(files.len(), 3);
+
+    // Convert file paths to strings for comparison
+    let file_paths: Vec<String> = files
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+
+    assert!(file_paths.iter().any(|p| p.contains("test_file.txt")));
+    assert!(file_paths.iter().any(|p| p.contains("duplicate_file.txt")));
     assert!(
-        stdout
-            .lines()
-            .filter(|line| {
-                line.contains("duplicate_file.txt")
-                    || line.contains("nested_duplicate.txt")
-                    || line.contains("test_file.txt")
-            })
-            .count()
-            == 2,
-        "Expected at least 2 duplicate files in output"
+        file_paths
+            .iter()
+            .any(|p| p.contains("nested_duplicate.txt"))
     );
+
     assert!(stderr.contains("Total wasted space:"));
     Ok(())
 }
@@ -106,11 +119,9 @@ fn test_find_duplicates_across_directories() -> io::Result<()> {
 
 #[test]
 fn test_no_duplicates() -> io::Result<()> {
-    // Create two temporary directories
     let temp_dir1 = tempdir()?;
     let temp_dir2 = tempdir()?;
 
-    // Create different files in each directory
     let file_path1 = temp_dir1.path().join("file1.txt");
     let mut file1 = File::create(&file_path1)?;
     writeln!(file1, "Content for file 1")?;
@@ -121,7 +132,6 @@ fn test_no_duplicates() -> io::Result<()> {
     writeln!(file2, "Completely different content for file 2")?;
     file2.flush()?;
 
-    // Run the deduplicator
     let output = Command::new(env!("CARGO_BIN_EXE_file-deduplicator"))
         .arg(temp_dir1.path())
         .arg(temp_dir2.path())
@@ -130,12 +140,12 @@ fn test_no_duplicates() -> io::Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Verify success
     assert!(output.status.success());
 
-    // Verify output is empty (no duplicates found)
-    assert!(stdout.is_empty());
-    // Should still show total (which would be 0)
+    // Parse JSON output - should be empty array
+    let groups: Vec<Value> = serde_json::from_str(&stdout).unwrap();
+    assert!(groups.is_empty());
+
     assert!(stderr.contains("Total wasted space:"));
 
     Ok(())
