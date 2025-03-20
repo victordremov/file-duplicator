@@ -5,48 +5,40 @@ use tempfile::tempdir;
 
 #[test]
 fn test_find_duplicates_with_same_directory() -> io::Result<()> {
-    // Create a temporary directory for our test
-    let temp_dir = tempdir()?;
-    let temp_path = temp_dir.path();
+    let temp_dir1 = tempdir()?;
+    let temp_dir2 = tempdir()?;
 
-    // Create a test file with some content
-    let file_path = temp_path.join("test_file.txt");
-    let mut file = File::create(&file_path)?;
-    writeln!(file, "This is a test file for deduplication testing")?;
-    file.flush()?;
+    // Create test file in first directory
+    let file_path1 = temp_dir1.path().join("test_file.txt");
+    let mut file1 = File::create(&file_path1)?;
+    writeln!(file1, "This is a test file for deduplication testing")?;
+    file1.flush()?;
 
-    // Create a duplicate file with the same content but different name
-    let dup_file_path = temp_path.join("duplicate_file.txt");
-    fs::copy(&file_path, &dup_file_path)?;
+    // Create a duplicate file in second directory
+    let dup_file_path = temp_dir2.path().join("duplicate_file.txt");
+    fs::copy(&file_path1, &dup_file_path)?;
 
     // Make a subdirectory with another duplicate
-    let subdir_path = temp_path.join("subdir");
+    let subdir_path = temp_dir2.path().join("subdir");
     fs::create_dir(&subdir_path)?;
     let nested_dup_path = subdir_path.join("nested_duplicate.txt");
-    fs::copy(&file_path, &nested_dup_path)?;
+    fs::copy(&file_path1, &nested_dup_path)?;
 
-    // Run the deduplicator with the same directory as both inputs
+    // Run the deduplicator
     let output = Command::new(env!("CARGO_BIN_EXE_file-deduplicator"))
-        .arg(temp_path)
-        .arg(temp_path)
+        .arg(temp_dir1.path())
+        .arg(temp_dir2.path())
         .output()?;
 
-    // Convert output to string for verification
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Print output for debugging
     println!("STDOUT: {}", stdout);
     println!("STDERR: {}", stderr);
 
-    // Verify that the command was successful
     assert!(output.status.success(), "Command failed: {}", stderr);
-
-    // Verify that duplicate files are listed
     assert!(stdout.contains("duplicate_file.txt"));
     assert!(stdout.contains("nested_duplicate.txt"));
-
-    // Verify wasted space is reported
     assert!(stderr.contains("Total wasted space:"));
 
     Ok(())
