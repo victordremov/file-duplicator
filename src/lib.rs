@@ -54,7 +54,7 @@ pub fn find_duplicates(dir1: &Path, dir2: &Path) -> Result<Vec<PathBuf>> {
 
     for file_path in find_files(dir2)? {
         let hash = hash_file(&file_path)?;
-        if hash_map.contains_key(&hash) && !hash_map[&hash].contains(&file_path) {
+        if hash_map.contains_key(&hash) && (hash_map[&hash][0] != file_path) {
             duplicates.push(file_path);
         }
     }

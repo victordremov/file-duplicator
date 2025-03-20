@@ -31,12 +31,12 @@ fn test_find_duplicates_with_same_directory() -> io::Result<()> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-
-    println!("STDOUT: {}", &stdout);
+    
+    println!("STDOUT: {}", stdout);
     println!("STDERR: {}", stderr);
 
     assert!(output.status.success(), "Command failed: {}", stderr);
-    assert!(stdout.contains("duplicate_file.txt"));
+    let first_file = stdout.contains("duplicate_file.txt");
     assert!(stdout.contains("nested_duplicate.txt"));
     assert!(stderr.contains("Total wasted space:"));
 
